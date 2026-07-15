@@ -143,6 +143,17 @@ public class User {
         this.password = null;
     }
 
+    /** 온보딩 첫 강아지 생성 완료 - 활성 강아지 지정 + 온보딩 상태 COMPLETED 전환 */
+    public void completeOnboarding(Long dogId) {
+        this.activeDogId = dogId;
+        this.onboardingStatus = OnboardingStatus.COMPLETED;
+    }
+
+    /** 활성 강아지 전환 (종 변경) */
+    public void changeActiveDog(Long dogId) {
+        this.activeDogId = dogId;
+    }
+
     /** 자체(이메일) 가입 유저 여부 - 비밀번호 변경/찾기 가능 조건 */
     public boolean isEmailProvider() {
         return this.provider == Provider.EMAIL;
