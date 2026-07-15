@@ -52,7 +52,19 @@ public enum ErrorCode {
     USER_009(HttpStatus.BAD_REQUEST, "USER_009", "현재 비밀번호가 일치하지 않습니다."),
 
     // 재화 (COIN)
-    COIN_001(HttpStatus.BAD_REQUEST, "COIN_001", "코인 잔액이 부족합니다.");
+    COIN_001(HttpStatus.BAD_REQUEST, "COIN_001", "코인 잔액이 부족합니다."),
+    COIN_002(HttpStatus.BAD_REQUEST, "COIN_002", "코인 금액은 0보다 커야 합니다."),
+
+    // 강아지 (DOG)
+    DOG_001(HttpStatus.BAD_REQUEST, "DOG_001", "강아지 이름 규칙을 충족하지 않습니다. (1~7자, 한글/영문/숫자만)"),
+    DOG_002(HttpStatus.BAD_REQUEST, "DOG_002", "강아지 이름에 사용할 수 없는 단어가 포함되어 있습니다."),
+    DOG_003(HttpStatus.NOT_FOUND, "DOG_003", "존재하지 않는 견종입니다."),
+    DOG_004(HttpStatus.CONFLICT, "DOG_004", "이미 보유한 견종입니다."),
+    DOG_005(HttpStatus.BAD_REQUEST, "DOG_005", "해금되지 않은 레어 견종입니다."),
+    DOG_006(HttpStatus.BAD_REQUEST, "DOG_006", "온보딩에서는 일반 견종만 선택할 수 있습니다."),
+    DOG_007(HttpStatus.NOT_FOUND, "DOG_007", "보유하지 않은 강아지입니다."),
+    DOG_008(HttpStatus.BAD_REQUEST, "DOG_008", "프로필 입력을 먼저 완료해야 합니다."),
+    DOG_009(HttpStatus.NOT_FOUND, "DOG_009", "활성 강아지가 없습니다.");
 
     private final HttpStatus status;
     private final String code;
