@@ -92,11 +92,15 @@ public class PaymentService {
             throw new BusinessException(ErrorCode.PAYMENT_001);
         }
 
-        // 상태 전이 + 코인 지급. 동시 요청으로 전이에 실패했다면 처리된 최신 상태를 반환(멱등)
-        paymentTransactionService.complete(request.orderId(), request.tid());
-        Payment completed = paymentRepository.findByOrderId(request.orderId())
+        // 상태 전이 + 코인 지급. 동시 요청으로 이미 완료된 경우만 멱등 반환하고,
+        // 실패/취소로 선점된 주문은 성공 응답처럼 보이지 않도록 차단한다.
+        boolean completedByThisRequest = paymentTransactionService.complete(request.orderId(), request.tid());
+        Payment latest = paymentRepository.findByOrderId(request.orderId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_002));
-        return PaymentDto.ApproveResponse.of(completed, completed.getCoinProduct().getCoinAmount());
+        if (!completedByThisRequest && latest.getStatus() != PaymentStatus.COMPLETED) {
+            throw new BusinessException(ErrorCode.PAYMENT_004);
+        }
+        return PaymentDto.ApproveResponse.of(latest, latest.getCoinProduct().getCoinAmount());
     }
 
     // TODO(MVP 범위 외 확장 지점): NicePay Webhook 수신으로 클라이언트 미도달 승인 건 동기화
