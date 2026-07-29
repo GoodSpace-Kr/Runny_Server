@@ -28,6 +28,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final EmailVerificationService emailVerificationService;
+    private final LoginAttemptService loginAttemptService;
     private final TokenService tokenService;
     private final SocialTokenVerifier socialTokenVerifier;
     private final PasswordEncoder passwordEncoder;
@@ -65,15 +66,24 @@ public class AuthService {
         return tokenService.issueTokens(user);
     }
 
-    /** 이메일 로그인. 자격 불일치는 이메일/비밀번호를 구분하지 않고 AUTH_012 단일 응답 */
+    /**
+     * 이메일 로그인. 자격 불일치는 이메일/비밀번호를 구분하지 않고 AUTH_012 단일 응답.
+     * 브루트포스 방어: 동일 이메일 10분 내 실패 5회 초과 시 차단(AUTH_017), 성공 시 카운터 초기화.
+     */
     @Transactional
     public AuthResponse.Tokens login(AuthRequest.Login request) {
-        User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_012));
-        if (!user.isEmailProvider() || user.getPassword() == null
+        // 시도 전 차단 여부 검사 - 초과 시 비밀번호 대조 자체를 수행하지 않는다
+        loginAttemptService.checkNotBlocked(request.email());
+
+        User user = userRepository.findByEmail(request.email()).orElse(null);
+        if (user == null || !user.isEmailProvider() || user.getPassword() == null
                 || !passwordEncoder.matches(request.password(), user.getPassword())) {
+            // 실패 이력은 REQUIRES_NEW로 기록되어 이 예외의 롤백과 무관하게 커밋된다
+            loginAttemptService.recordFailure(request.email());
             throw new BusinessException(ErrorCode.AUTH_012);
         }
+
+        loginAttemptService.clear(request.email());
         return tokenService.issueTokens(user);
     }
 
