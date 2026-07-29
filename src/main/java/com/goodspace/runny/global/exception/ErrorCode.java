@@ -33,6 +33,7 @@ public enum ErrorCode {
     AUTH_014(HttpStatus.BAD_REQUEST, "AUTH_014", "유효하지 않거나 만료된 재설정 토큰입니다."),
     AUTH_015(HttpStatus.TOO_MANY_REQUESTS, "AUTH_015", "인증코드 발송 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
     AUTH_016(HttpStatus.TOO_MANY_REQUESTS, "AUTH_016", "인증 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
+    AUTH_017(HttpStatus.TOO_MANY_REQUESTS, "AUTH_017", "로그인 시도 횟수를 초과했습니다. 10분 후 다시 시도해주세요."),
 
     // 외부 연동 (EXTERNAL)
     EXTERNAL_001(HttpStatus.BAD_GATEWAY, "EXTERNAL_001", "외부 API 호출에 실패했습니다."),
