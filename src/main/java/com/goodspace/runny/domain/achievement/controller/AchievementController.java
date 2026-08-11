@@ -26,7 +26,8 @@ public class AchievementController {
 
     /** 업적 목록 조회 */
     @Operation(summary = "업적 목록 조회",
-            description = "아이콘(imageUrl)/달성(achieved)/수령(claimed) 여부 + 달성률. 프론트 필터(전체·달성·미달성)는 achieved로 분기")
+            description = "아이콘(imageUrl)/달성(achieved)/수령(claimed) 여부 + 진행 바(progress/targetValue) + 달성률. "
+                    + "프론트 필터(전체·달성·미달성)는 achieved로 분기하며, 1회성 업적은 targetValue=1로 내려간다")
     @GetMapping
     public ApiResponse<AchievementDto.ListResponse> getAchievements() {
         return ApiResponse.ok(achievementService.getAchievements(SecurityUtil.currentUserId()));

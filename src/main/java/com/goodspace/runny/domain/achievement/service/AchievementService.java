@@ -79,6 +79,7 @@ public class AchievementService {
     private final UserQuestRepository userQuestRepository;
     private final UserRepository userRepository;
     private final CoinService coinService;
+    private final TotalDistanceProvider totalDistanceProvider;
 
     /** 러닝 완료 판정 입력 - 러닝 도메인에서 전달. totalDistanceKm은 이번 러닝을 포함한 누적 거리 */
     public record RunningResult(
@@ -239,7 +240,7 @@ public class AchievementService {
                 achievement.getRewardType(), achievement.getRewardCoin(), achievement.getRewardBreedId());
     }
 
-    /** 업적 목록 - 아이콘/달성/수령 여부 + 달성률 */
+    /** 업적 목록 - 아이콘/달성/수령 여부 + 진행 바(progress/target) + 달성률 */
     @Transactional(readOnly = true)
     public AchievementDto.ListResponse getAchievements(Long userId) {
         List<Achievement> all = achievementRepository.findAllByOrderByIdAsc();
@@ -247,12 +248,55 @@ public class AchievementService {
         userAchievementRepository.findByUserId(userId)
                 .forEach(ua -> mine.put(ua.getAchievement().getId(), ua));
 
+        Map<String, Double> progressByCode = progressMap(userId);
         List<AchievementDto.Item> items = all.stream()
-                .map(achievement -> AchievementDto.Item.of(achievement, mine.get(achievement.getId())))
+                .map(achievement -> AchievementDto.Item.of(
+                        achievement,
+                        mine.get(achievement.getId()),
+                        progressByCode.getOrDefault(achievement.getCode(), 0.0),
+                        targetOf(achievement.getCode())))
                 .toList();
         int achievedCount = mine.size();
         double rate = all.isEmpty() ? 0 : Math.round(achievedCount * 1000.0 / all.size()) / 10.0;
         return new AchievementDto.ListResponse(items, achievedCount, all.size(), rate);
+    }
+
+    /**
+     * 업적별 목표값 - 진행 바의 분모. 카운터/누적형은 실제 목표 수치, 1회성 업적은 1을 반환한다.
+     * 판정 로직의 상수를 그대로 사용하므로 기준을 바꾸면 진행 바도 함께 따라간다.
+     */
+    private double targetOf(String code) {
+        if (code.startsWith("MILEAGE_")) {
+            return Double.parseDouble(code.substring("MILEAGE_".length()));
+        }
+        return switch (code) {
+            case AchievementSeeder.LANDMARK_MASTER -> (double) LANDMARK_TARGET_COUNT;
+            case AchievementSeeder.NIGHT_PATROL, AchievementSeeder.MORNING_PATROL -> (double) PATROL_TARGET_COUNT;
+            case AchievementSeeder.PHOTOGRAPHER -> (double) PHOTOGRAPHER_TARGET_COUNT;
+            case AchievementSeeder.DAILY_ALL_CLEAR -> (double) ALL_CLEAR_TARGET_DAYS;
+            case AchievementSeeder.LONG_RUN_MASTER -> (double) LONG_RUN_TARGET_COUNT;
+            case AchievementSeeder.IRON_TRAINING -> (double) IRON_TARGET_DAYS;
+            case AchievementSeeder.QUEST_MASTER -> (double) QUEST_MASTER_TARGET;
+            // 그 외(1km 달리기, 친구 사귀기, 견종 해금 등)는 1회성이므로 목표 1
+            default -> 1.0;
+        };
+    }
+
+    /**
+     * 업적 코드별 현재 진행도 맵 - 카운터형은 achievement_progress, 그 외는 각 도메인 집계를 사용한다.
+     * (랜드마크: 방문 수 / 미션 마스터: 완료 퀘스트 수 / 누적 거리 단계: 총 러닝 거리)
+     */
+    private Map<String, Double> progressMap(Long userId) {
+        Map<String, Double> map = new HashMap<>();
+        achievementProgressRepository.findByUserId(userId)
+                .forEach(progress -> map.put(progress.getCode(), progress.getProgress()));
+        map.put(AchievementSeeder.LANDMARK_MASTER, (double) userLandmarkVisitRepository.countByUserId(userId));
+        map.put(AchievementSeeder.QUEST_MASTER, (double) userQuestRepository.countByUserIdAndCompletedTrue(userId));
+        double totalDistanceKm = totalDistanceProvider.totalDistanceKm(userId);
+        for (int tierKm : AchievementSeeder.MILEAGE_TIERS) {
+            map.put(AchievementSeeder.mileageCode(tierKm), totalDistanceKm);
+        }
+        return map;
     }
 
     /** 카운트형 업적 공통 - 카운터 +1 후 목표 도달 시 달성 처리 */
