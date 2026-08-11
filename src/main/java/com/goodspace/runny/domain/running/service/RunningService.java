@@ -183,7 +183,7 @@ public class RunningService {
         return buildReport(record);
     }
 
-    /** 월별 히스토리 - 요약(누적 거리/횟수/총 시간) + 해당 월 기록 목록(미확인 여부 포함) */
+    /** 월별 히스토리 - 요약(총 시간/평균 페이스/누적 칼로리 + 누적 거리/횟수) + 해당 월 기록 목록(미확인 여부 포함) */
     @Transactional(readOnly = true)
     public RunningDto.HistoryResponse getHistory(Long userId, int year, int month) {
         LocalDateTime start = LocalDate.of(year, month, 1).atStartOfDay();
@@ -193,9 +193,13 @@ public class RunningService {
 
         double totalDistance = records.stream().mapToDouble(RunningRecord::getDistanceKm).sum();
         long totalDuration = records.stream().mapToLong(RunningRecord::getDurationSec).sum();
+        int totalCalories = records.stream().mapToInt(RunningRecord::getCalories).sum();
+        // 월 평균 페이스(초/km) = 총 시간 / 총 거리. 거리 0이면 0으로 내려 프론트가 "-" 처리
+        long avgPaceSec = totalDistance > 0 ? Math.round(totalDuration / totalDistance) : 0;
         return new RunningDto.HistoryResponse(year, month,
                 new RunningDto.HistoryResponse.Summary(
-                        Math.round(totalDistance * 100) / 100.0, records.size(), totalDuration),
+                        Math.round(totalDistance * 100) / 100.0, records.size(), totalDuration,
+                        avgPaceSec, totalCalories),
                 records.stream().map(RunningDto.HistoryItem::from).toList());
     }
 
