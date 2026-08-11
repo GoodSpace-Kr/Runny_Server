@@ -1,7 +1,6 @@
 package com.goodspace.runny.domain.running.repository;
 
 import com.goodspace.runny.domain.running.entity.RunningRecord;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -44,13 +43,16 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
                               @Param("start") LocalDateTime start,
                               @Param("end") LocalDateTime end);
 
-    /** 크루 주간 거리 상위 집계 (7단계 CrewWeeklyDistanceProvider 실제 구현용) */
-    @Query("SELECT r.userId, SUM(r.distanceKm) FROM RunningRecord r " +
+    /**
+     * 크루 주간 러닝 집계 (CrewRunningStatsProvider 실제 구현용).
+     * 유저별로 거리 합 / 시간 합 / 최단 평균 페이스를 한 번에 반환해
+     * 주간 목표 진행 바, 카테고리별 TOP(스피드/거리/체력), 크루원 목록 지표를 모두 조립한다.
+     */
+    @Query("SELECT r.userId, SUM(r.distanceKm), SUM(r.durationSec), MIN(r.avgPaceSec) FROM RunningRecord r " +
             "WHERE r.userId IN (SELECT m.userId FROM com.goodspace.runny.domain.crew.entity.CrewMember m " +
             "                   WHERE m.crewId = :crewId) " +
             "AND r.endedAt >= :weekStart " +
-            "GROUP BY r.userId ORDER BY SUM(r.distanceKm) DESC")
-    List<Object[]> sumWeeklyDistanceByCrew(@Param("crewId") Long crewId,
-                                           @Param("weekStart") LocalDateTime weekStart,
-                                           Pageable pageable);
+            "GROUP BY r.userId")
+    List<Object[]> aggregateWeeklyByCrew(@Param("crewId") Long crewId,
+                                         @Param("weekStart") LocalDateTime weekStart);
 }

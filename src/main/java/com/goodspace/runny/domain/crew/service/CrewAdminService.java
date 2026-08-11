@@ -163,6 +163,17 @@ public class CrewAdminService {
         crew.changeIntro(intro);
     }
 
+    /** 주간 목표 거리 변경 - 무료, 1~1,000km 범위 검증 (크루 메인 진행 바의 분모) */
+    @Transactional
+    public int changeWeeklyGoal(Long crewId, Long leaderId, int goalKm) {
+        Crew crew = validateLeader(crewId, leaderId);
+        if (goalKm < Crew.MIN_WEEKLY_GOAL_KM || goalKm > Crew.MAX_WEEKLY_GOAL_KM) {
+            throw new BusinessException(ErrorCode.CREW_015);
+        }
+        crew.changeWeeklyGoal(goalKm);
+        return crew.getWeeklyGoalKm();
+    }
+
     /** 정원 확장 - 1,000코인당 +50 */
     @Transactional
     public int expandCapacity(Long crewId, Long leaderId) {

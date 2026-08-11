@@ -21,7 +21,7 @@ public final class CrewDto {
     ) {
     }
 
-    /** 검색 항목 - memberCount와 myRequestStatus(NONE/PENDING)로 가입 신청/승인대기 버튼 분기 */
+    /** 검색 항목 - memberCount와 myRequestStatus(NONE/PENDING)로 가입 신청/승인대기 버튼 분기, 누적 거리 표시 포함 */
     public record SearchItem(
             Long crewId,
             String name,
@@ -29,6 +29,7 @@ public final class CrewDto {
             String intro,
             int memberCount,
             int maxMembers,
+            double totalDistance,
             String myRequestStatus
     ) {
     }
@@ -39,31 +40,52 @@ public final class CrewDto {
     ) {
     }
 
-    /** 주간 top3 항목 */
+    /** 카테고리별 1등 항목 - value 단위는 카테고리별로 다르다(스피드: 초/km, 거리: km, 체력: 초) */
     public record TopMember(
-            int rank,
             UserSummary user,
-            double distanceKm
+            double value
     ) {
     }
 
-    /** 크루원 목록 항목 */
+    /**
+     * 이번 주 카테고리별 TOP - 월요일 00:00 (KST) 리셋 기준.
+     * speed: 이번 주 최단 평균 페이스 1회(초/km, 프론트가 km/h 변환) / distance: 주간 누적 거리(km) /
+     * stamina: 주간 누적 시간(초). 해당 기록이 없으면 각 필드는 null.
+     */
+    public record WeeklyTop(
+            TopMember speed,
+            TopMember distance,
+            TopMember stamina
+    ) {
+    }
+
+    /** 크루원 목록 항목 - 이번 주 러닝 지표 포함(기록이 없으면 null로 내려가 프론트가 "-" 처리) */
     public record MemberItem(
             UserSummary user,
-            CrewRole role
+            CrewRole role,
+            Double weeklyDistanceKm,
+            Long weeklyDurationSec,
+            Long weeklyAvgPaceSec
     ) {
     }
 
-    /** 크루 상세 - 미가입자 검색 팝업과 크루원 메인 화면이 동일 데이터 사용 */
+    /**
+     * 크루 상세 - 미가입자 검색 팝업과 크루원 메인 화면이 동일 데이터 사용.
+     * 헤더 통계는 누적 기준(크루원 수/누적 러닝 횟수/누적 거리), 진행 바만 이번 주 거리 기준이다.
+     */
     public record DetailResponse(
             Long crewId,
             String name,
             String imageUrl,
             String intro,
-            double totalDistance,
             int memberCount,
             int maxMembers,
-            List<TopMember> weeklyTop3,
+            int totalRunCount,
+            double totalDistance,
+            int weeklyGoalKm,
+            double weeklyDistanceKm,
+            int weeklyGoalPercent,
+            WeeklyTop weeklyTop,
             List<MemberItem> members
     ) {
     }

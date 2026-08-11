@@ -25,6 +25,10 @@ public class Crew {
 
     public static final int DEFAULT_MAX_MEMBERS = 50;
     public static final int CAPACITY_EXPAND_UNIT = 50;
+    // 크루 주간 목표 거리 기본값 (km) - 크루장이 변경 가능
+    public static final int DEFAULT_WEEKLY_GOAL_KM = 50;
+    public static final int MIN_WEEKLY_GOAL_KM = 1;
+    public static final int MAX_WEEKLY_GOAL_KM = 1_000;
     // 로고 미설정 시 사용하는 기본 이미지 (운영자 등록 정적 리소스)
     public static final String DEFAULT_IMAGE_URL =
             "https://runny-assets.s3.ap-northeast-2.amazonaws.com/crew/default.png";
@@ -53,6 +57,14 @@ public class Crew {
     @Column(name = "total_distance", nullable = false)
     private double totalDistance;
 
+    // 크루 총 누적 러닝 횟수 - 크루원 러닝 완료 시 가산 (크루 메인 헤더 통계)
+    @Column(name = "total_run_count", nullable = false)
+    private int totalRunCount;
+
+    // 주간 목표 거리 (km) - 크루 메인 진행 바의 분모, 크루장이 설정
+    @Column(name = "weekly_goal_km", nullable = false)
+    private int weeklyGoalKm;
+
     public Crew(String name, String imageUrl, String intro, Long leaderId) {
         this.name = name;
         this.imageUrl = imageUrl;
@@ -60,6 +72,8 @@ public class Crew {
         this.leaderId = leaderId;
         this.maxMembers = DEFAULT_MAX_MEMBERS;
         this.totalDistance = 0;
+        this.totalRunCount = 0;
+        this.weeklyGoalKm = DEFAULT_WEEKLY_GOAL_KM;
     }
 
     /** 표시용 이미지 URL - 미설정 시 기본 이미지 */
@@ -92,8 +106,14 @@ public class Crew {
         this.leaderId = newLeaderId;
     }
 
-    /** 러닝 완료 시 누적 거리 가산 (9단계에서 호출) */
-    public void addDistance(double distanceKm) {
+    /** 러닝 완료 시 누적 거리/횟수 가산 (러닝 도메인에서 호출) */
+    public void addRunning(double distanceKm) {
         this.totalDistance += distanceKm;
+        this.totalRunCount += 1;
+    }
+
+    /** 주간 목표 거리 변경 (크루장 전용, 검증은 서비스에서 수행) */
+    public void changeWeeklyGoal(int weeklyGoalKm) {
+        this.weeklyGoalKm = weeklyGoalKm;
     }
 }

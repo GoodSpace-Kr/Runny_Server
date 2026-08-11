@@ -21,9 +21,12 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 크루 서비스. 크루명 중복확인, 생성, 검색, 상세, 내 크루 조회, 가입 신청/취소, 탈퇴를 담당한다.
@@ -40,7 +43,7 @@ public class CrewService {
     private final CrewMemberRepository crewMemberRepository;
     private final CrewJoinRequestRepository crewJoinRequestRepository;
     private final CrewValidator crewValidator;
-    private final CrewWeeklyDistanceProvider weeklyDistanceProvider;
+    private final CrewRunningStatsProvider crewRunningStatsProvider;
     private final UserSummaryService userSummaryService;
     private final S3Uploader s3Uploader;
     private final CrewNotificationHook crewNotificationHook;
@@ -97,39 +100,85 @@ public class CrewService {
                 .map(crew -> new CrewDto.SearchItem(
                         crew.getId(), crew.getName(), crew.displayImageUrl(), crew.getIntro(),
                         memberCounts.getOrDefault(crew.getId(), 0), crew.getMaxMembers(),
+                        Math.round(crew.getTotalDistance() * 10) / 10.0,
                         myPendingCrewIds.contains(crew.getId()) ? "PENDING" : "NONE"))
                 .toList();
         return new CrewDto.SearchResponse(content);
     }
 
-    /** 크루 상세 - 이미지/이름/한줄소개/총 누적 거리/멤버 수(현재·최대)/이번 주 top3/크루원 목록 */
+    /**
+     * 크루 상세 - 헤더 통계(크루원 수/누적 러닝 횟수/누적 거리)는 누적 기준,
+     * 진행 바(주간 목표 대비)와 카테고리별 TOP, 크루원 지표는 이번 주(월요일 00:00 KST) 기준이다.
+     */
     @Transactional(readOnly = true)
     public CrewDto.DetailResponse getDetail(Long crewId) {
         Crew crew = findCrew(crewId);
         List<CrewMember> members = crewMemberRepository.findByCrewIdOrderByJoinedAtAsc(crewId);
 
-        // 멤버 요약 일괄 조립 (6단계 UserSummaryService 재사용)
+        // 멤버 요약 일괄 조립 (UserSummaryService 재사용)
         List<Long> memberUserIds = members.stream().map(CrewMember::getUserId).toList();
         Map<Long, UserSummary> summaries = userSummaryService.summarizeAll(memberUserIds);
+
+        // 이번 주 크루원별 러닝 집계 - 기록이 없는 멤버는 맵에 없다
+        Map<Long, CrewRunningStatsProvider.WeeklyStats> weeklyStats = crewRunningStatsProvider.weeklyStats(crewId)
+                .stream()
+                .collect(Collectors.toMap(CrewRunningStatsProvider.WeeklyStats::userId, stats -> stats));
+
         List<CrewDto.MemberItem> memberItems = members.stream()
                 .filter(member -> summaries.containsKey(member.getUserId()))
-                .map(member -> new CrewDto.MemberItem(summaries.get(member.getUserId()), member.getRole()))
+                .map(member -> {
+                    CrewRunningStatsProvider.WeeklyStats stats = weeklyStats.get(member.getUserId());
+                    return new CrewDto.MemberItem(
+                            summaries.get(member.getUserId()), member.getRole(),
+                            stats == null ? null : round1(stats.distanceKm()),
+                            stats == null ? null : stats.durationSec(),
+                            stats == null ? null : stats.avgPaceSec());
+                })
                 .toList();
 
-        // 이번 주 top3 (월요일 00:00 KST 기준, running_record는 9단계 - 현재는 빈 목록)
-        List<CrewWeeklyDistanceProvider.MemberDistance> top3 = weeklyDistanceProvider.weeklyTop3(crewId);
-        List<CrewDto.TopMember> topMembers = new java.util.ArrayList<>();
-        for (int i = 0; i < top3.size(); i++) {
-            CrewWeeklyDistanceProvider.MemberDistance entry = top3.get(i);
-            UserSummary summary = summaries.get(entry.userId());
-            if (summary != null) {
-                topMembers.add(new CrewDto.TopMember(i + 1, summary, entry.distanceKm()));
-            }
-        }
+        // 주간 목표 진행 바 - 크루원 전체의 이번 주 거리 합산
+        double weeklyDistanceKm = weeklyStats.values().stream()
+                .mapToDouble(CrewRunningStatsProvider.WeeklyStats::distanceKm)
+                .sum();
+        int weeklyGoalPercent = crew.getWeeklyGoalKm() > 0
+                ? (int) Math.round(weeklyDistanceKm * 100 / crew.getWeeklyGoalKm())
+                : 0;
 
         return new CrewDto.DetailResponse(crew.getId(), crew.getName(), crew.displayImageUrl(),
-                crew.getIntro(), crew.getTotalDistance(), members.size(), crew.getMaxMembers(),
-                topMembers, memberItems);
+                crew.getIntro(), members.size(), crew.getMaxMembers(),
+                crew.getTotalRunCount(), round1(crew.getTotalDistance()),
+                crew.getWeeklyGoalKm(), round1(weeklyDistanceKm), weeklyGoalPercent,
+                buildWeeklyTop(weeklyStats.values(), summaries), memberItems);
+    }
+
+    /**
+     * 이번 주 카테고리별 TOP 조립 - 스피드(최단 평균 페이스 1회) / 거리(주간 누적) / 체력(주간 누적 시간).
+     * 이번 주 기록이 없으면 각 항목은 null로 내려간다(프론트 빈 값 표시).
+     */
+    private CrewDto.WeeklyTop buildWeeklyTop(Collection<CrewRunningStatsProvider.WeeklyStats> stats,
+                                             Map<Long, UserSummary> summaries) {
+        List<CrewRunningStatsProvider.WeeklyStats> candidates = stats.stream()
+                .filter(entry -> summaries.containsKey(entry.userId()))
+                .toList();
+        CrewDto.TopMember speed = candidates.stream()
+                .filter(entry -> entry.bestPaceSec() > 0)
+                .min(Comparator.comparingLong(CrewRunningStatsProvider.WeeklyStats::bestPaceSec))
+                .map(entry -> new CrewDto.TopMember(summaries.get(entry.userId()), entry.bestPaceSec()))
+                .orElse(null);
+        CrewDto.TopMember distance = candidates.stream()
+                .max(Comparator.comparingDouble(CrewRunningStatsProvider.WeeklyStats::distanceKm))
+                .map(entry -> new CrewDto.TopMember(summaries.get(entry.userId()), round1(entry.distanceKm())))
+                .orElse(null);
+        CrewDto.TopMember stamina = candidates.stream()
+                .max(Comparator.comparingLong(CrewRunningStatsProvider.WeeklyStats::durationSec))
+                .map(entry -> new CrewDto.TopMember(summaries.get(entry.userId()), entry.durationSec()))
+                .orElse(null);
+        return new CrewDto.WeeklyTop(speed, distance, stamina);
+    }
+
+    /** 거리 표시용 소수 첫째 자리 반올림 */
+    private double round1(double value) {
+        return Math.round(value * 10) / 10.0;
     }
 
     /** 내 크루 조회 - role 포함, 크루장이면 pendingRequestCount(대기 중 가입 신청 수) 포함 */
