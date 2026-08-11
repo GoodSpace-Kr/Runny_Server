@@ -126,7 +126,14 @@ public enum ErrorCode {
     // 러닝 (RUNNING)
     RUNNING_001(HttpStatus.BAD_REQUEST, "RUNNING_001", "러닝 데이터가 올바르지 않습니다. (음수/비정상 페이스)"),
     RUNNING_002(HttpStatus.BAD_REQUEST, "RUNNING_002", "미래 시각의 러닝 기록은 저장할 수 없습니다."),
-    RUNNING_003(HttpStatus.NOT_FOUND, "RUNNING_003", "존재하지 않는 러닝 기록입니다.");
+    RUNNING_003(HttpStatus.NOT_FOUND, "RUNNING_003", "존재하지 않는 러닝 기록입니다."),
+
+    // 꾸미기 템플릿 (DECORATION)
+    DECORATION_001(HttpStatus.BAD_REQUEST, "DECORATION_001", "저장할 수 있는 템플릿 개수(10개)를 초과했습니다."),
+    DECORATION_002(HttpStatus.BAD_REQUEST, "DECORATION_002", "템플릿 레이아웃 크기는 20KB를 초과할 수 없습니다."),
+    DECORATION_003(HttpStatus.BAD_REQUEST, "DECORATION_003", "템플릿 레이아웃 형식이 올바르지 않습니다."),
+    DECORATION_004(HttpStatus.BAD_REQUEST, "DECORATION_004", "템플릿 이름은 20자를 초과할 수 없습니다."),
+    DECORATION_005(HttpStatus.NOT_FOUND, "DECORATION_005", "존재하지 않는 템플릿입니다.");
 
     private final HttpStatus status;
     private final String code;
