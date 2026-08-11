@@ -42,13 +42,15 @@ public class FriendService {
         List<User> users = userRepository.findByNicknameContainingAndIdNotOrderByIdAsc(nickname, userId);
 
         Map<Long, RelationStatus> relationByUserId = relationMap(userId);
+        Map<Long, Long> pendingRequestIds = pendingRequestIdMap(userId);
         List<Long> resultUserIds = users.stream().map(User::getId).toList();
         Map<Long, UserSummary> summaries = userSummaryService.summarizeAll(resultUserIds);
 
         List<FriendDto.SearchItem> content = resultUserIds.stream()
                 .map(id -> new FriendDto.SearchItem(
                         summaries.get(id),
-                        relationByUserId.getOrDefault(id, RelationStatus.NONE)))
+                        relationByUserId.getOrDefault(id, RelationStatus.NONE),
+                        pendingRequestIds.get(id)))
                 .toList();
         return new FriendDto.SearchResponse(content);
     }
@@ -135,9 +137,12 @@ public class FriendService {
         friendshipRepository.delete(friendship);
     }
 
-    /** 친구 목록 - 놀이터 초대된(같이 놀고 있는) 친구 최상단 + isPlayingTogether 플래그 */
+    /**
+     * 친구 목록 - 놀이터 초대된(같이 놀고 있는) 친구 최상단 + isPlayingTogether 플래그.
+     * 친구 요청 탭 배지 숫자용으로 미확인 받은 요청 수를 함께 반환하며, 여기서는 읽음 처리하지 않는다.
+     */
     @Transactional(readOnly = true)
-    public List<FriendDto.FriendItem> getFriends(Long userId) {
+    public FriendDto.FriendListResponse getFriends(Long userId) {
         List<Long> friendIds = friendshipRepository.findAcceptedOf(userId).stream()
                 .map(f -> f.otherUserId(userId))
                 .toList();
@@ -146,28 +151,61 @@ public class FriendService {
                 .toList();
 
         Map<Long, UserSummary> summaries = userSummaryService.summarizeAll(friendIds);
-        return friendIds.stream()
+        List<FriendDto.FriendItem> friends = friendIds.stream()
                 .filter(summaries::containsKey)
                 .map(id -> new FriendDto.FriendItem(summaries.get(id), invitedIds.contains(id)))
                 .sorted((a, b) -> Boolean.compare(b.isPlayingTogether(), a.isPlayingTogether()))
                 .toList();
+        int uncheckedRequestCount = friendshipRepository
+                .countByReceiverIdAndStatusAndCheckedFalse(userId, FriendshipStatus.PENDING);
+        return new FriendDto.FriendListResponse(friends, uncheckedRequestCount);
     }
 
-    /** 친구 상세 - 프로필 팝업용 (UserSummary + 활성 강아지 스탯) */
+    /**
+     * 유저 프로필 상세 - 친구가 아니어도 조회 가능하다(검색 결과에서 프로필 진입).
+     * 관계 상태와 PENDING 요청 ID를 함께 내려 프론트가 버튼(친구 추가/신청 취소/놀이터 초대)을 분기한다.
+     */
     @Transactional(readOnly = true)
     public FriendDto.FriendDetail getFriendDetail(Long userId, Long friendUserId) {
-        assertFriends(userId, friendUserId);
         UserSummary summary = userSummaryService.summarize(friendUserId);
         if (summary == null) {
             throw new BusinessException(ErrorCode.USER_003);
         }
+        // 나와의 관계 단건 조회 (방향 무관) - 관계 상태와 PENDING 요청 ID를 함께 도출
+        Friendship relation = friendshipRepository
+                .findBetween(Math.min(userId, friendUserId), Math.max(userId, friendUserId))
+                .orElse(null);
+        RelationStatus relationStatus = toRelationStatus(relation, userId);
+        Long requestId = (relation != null && relation.getStatus() == FriendshipStatus.PENDING)
+                ? relation.getId() : null;
         // 활성 강아지 스탯 조회 (요약에는 외형만 있으므로 별도 조회)
         if (summary.dog() == null) {
-            return new FriendDto.FriendDetail(summary, 0, 0, 0);
+            return new FriendDto.FriendDetail(summary, 0, 0, 0, relationStatus, requestId);
         }
         return userDogRepository.findById(summary.dog().dogId())
-                .map(dog -> new FriendDto.FriendDetail(summary, dog.getStamina(), dog.getEndurance(), dog.getSpeed()))
-                .orElse(new FriendDto.FriendDetail(summary, 0, 0, 0));
+                .map(dog -> new FriendDto.FriendDetail(summary,
+                        dog.getStamina(), dog.getEndurance(), dog.getSpeed(), relationStatus, requestId))
+                .orElse(new FriendDto.FriendDetail(summary, 0, 0, 0, relationStatus, requestId));
+    }
+
+    /** 관계 엔티티를 나 기준 관계 상태로 변환 (없으면 NONE) */
+    private RelationStatus toRelationStatus(Friendship relation, Long userId) {
+        if (relation == null) {
+            return RelationStatus.NONE;
+        }
+        if (relation.getStatus() == FriendshipStatus.ACCEPTED) {
+            return RelationStatus.FRIEND;
+        }
+        return relation.getRequesterId().equals(userId) ? RelationStatus.REQUESTED : RelationStatus.RECEIVED;
+    }
+
+    /** 나와 PENDING 상태인 요청의 ID 맵 (상대 유저 ID -> requestId) - 검색 결과에서 즉시 취소·수락용 */
+    private Map<Long, Long> pendingRequestIdMap(Long userId) {
+        Map<Long, Long> map = new HashMap<>();
+        friendshipRepository.findAllInvolving(userId).stream()
+                .filter(friendship -> friendship.getStatus() == FriendshipStatus.PENDING)
+                .forEach(friendship -> map.put(friendship.otherUserId(userId), friendship.getId()));
+        return map;
     }
 
     /** 친구 삭제 - 관계 삭제 + 서로의 놀이터 초대도 함께 제거 */

@@ -26,8 +26,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PlaygroundService {
 
-    // 놀이터 초대 최대 인원 (내 강아지 포함 최대 5마리)
-    private static final int MAX_INVITES = 4;
+    // 놀이터 초대 최대 인원 (내 강아지 포함 메인화면 총 4마리)
+    private static final int MAX_INVITES = 3;
 
     private final PlaygroundInviteRepository playgroundInviteRepository;
     private final UserRepository userRepository;
@@ -35,7 +35,7 @@ public class PlaygroundService {
     private final FriendService friendService;
     private final DogService dogService;
 
-    /** 초대 목록 저장 - 친구 ID 배열(최대 4명) 전체 교체(PUT). 친구 관계를 전건 검증한다 */
+    /** 초대 목록 저장 - 친구 ID 배열(최대 3명) 전체 교체(PUT). 친구 관계를 전건 검증한다 */
     @Transactional
     public void saveInvites(Long userId, FriendDto.InviteSaveRequest request) {
         List<Long> friendIds = List.copyOf(new LinkedHashSet<>(request.friendUserIds()));

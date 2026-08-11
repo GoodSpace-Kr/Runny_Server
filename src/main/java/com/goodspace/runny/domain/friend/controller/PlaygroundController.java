@@ -36,7 +36,7 @@ public class PlaygroundController {
 
     /** 놀이터 초대 목록 저장 */
     @Operation(summary = "놀이터 초대 목록 저장 (전체 교체)",
-            description = "친구 ID 배열(최대 4명, 초과 시 FRIEND_005) 전체 교체(PUT). 친구가 아닌 유저 포함 시 FRIEND_004. "
+            description = "친구 ID 배열(최대 3명, 초과 시 FRIEND_005) 전체 교체(PUT). 친구가 아닌 유저 포함 시 FRIEND_004. "
                     + "초대는 나에게만 보이며 상대에게 알림/노출되지 않는다")
     @PutMapping("/invites")
     public ApiResponse<Void> saveInvites(@Valid @RequestBody FriendDto.InviteSaveRequest request) {
