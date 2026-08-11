@@ -14,6 +14,7 @@ import com.goodspace.runny.global.util.S3Uploader;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import java.util.regex.Pattern;
 /**
  * 회원 서비스. 온보딩 프로필, 내 정보 조회/수정, 비밀번호 변경, 회원 탈퇴(소프트 삭제)를 담당한다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -66,7 +68,7 @@ public class UserService {
         if (request.nickname() != null && !request.nickname().equals(user.getNickname())) {
             validateNickname(request.nickname());
         }
-        user.updateInfo(request.nickname(), request.height(), request.weight());
+        user.updateInfo(request.nickname(), request.height(), request.weight(), request.gender());
         return UserDto.MeResponse.from(user);
     }
 
@@ -88,12 +90,24 @@ public class UserService {
     }
 
     /**
-     * 회원 탈퇴 - 소프트 삭제. deleted_at 기록 + 개인정보 즉시 익명화 + refresh 삭제.
-     * payment/coin_transaction/running_record는 보존한다.
+     * 회원 탈퇴 - 소프트 삭제. 본인 확인(자체 가입 유저는 비밀번호 검증) 후
+     * deleted_at 기록 + 개인정보 즉시 익명화 + refresh 삭제. payment/coin_transaction/running_record는 보존한다.
      */
     @Transactional
-    public void withdraw(Long userId) {
+    public void withdraw(Long userId, UserDto.WithdrawRequest request) {
         User user = findUser(userId);
+        // 자체 가입(EMAIL) 유저는 비밀번호로 본인 확인. 소셜 유저는 비밀번호가 없으므로 확인 팝업만으로 진행한다
+        if (user.isEmailProvider()) {
+            if (request == null || request.password() == null || request.password().isBlank()
+                    || user.getPassword() == null
+                    || !passwordEncoder.matches(request.password(), user.getPassword())) {
+                throw new BusinessException(ErrorCode.USER_009);
+            }
+        }
+        // 탈퇴 사유는 별도 저장 없이 로그로만 남긴다 (정책 확정 시 별도 테이블로 이관)
+        if (request != null && request.reason() != null && !request.reason().isBlank()) {
+            log.info("회원 탈퇴 사유: userId={}, reason={}", userId, request.reason());
+        }
         user.withdraw();
         tokenService.deleteRefreshToken(userId);
         // 상호작용 데이터 삭제: 친구 관계/요청 + 놀이터 초대 (6단계 연결 완료)
