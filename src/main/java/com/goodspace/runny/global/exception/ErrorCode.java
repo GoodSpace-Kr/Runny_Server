@@ -111,6 +111,7 @@ public enum ErrorCode {
     CREW_012(HttpStatus.NOT_FOUND, "CREW_012", "존재하지 않는 가입 신청입니다."),
     CREW_013(HttpStatus.BAD_REQUEST, "CREW_013", "자기 자신에게는 수행할 수 없는 작업입니다."),
     CREW_014(HttpStatus.BAD_REQUEST, "CREW_014", "해당 유저는 크루원이 아닙니다."),
+    CREW_015(HttpStatus.BAD_REQUEST, "CREW_015", "주간 목표 거리는 1~1,000km 범위로 설정할 수 있습니다."),
 
     // 퀘스트 (QUEST)
     QUEST_001(HttpStatus.BAD_REQUEST, "QUEST_001", "아직 달성하지 않은 퀘스트입니다."),

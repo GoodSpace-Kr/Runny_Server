@@ -164,10 +164,10 @@ public class RunningService {
                         request.avgPaceSec(), yesterdayAvgPace, totalDistanceKm,
                         request.startedAt(), request.visitedLandmarkIds()));
 
-        // (9) 크루 소속이면 크루 총 누적 거리 가산
+        // (9) 크루 소속이면 크루 총 누적 거리/횟수 가산
         crewMemberRepository.findByUserId(userId).ifPresent(member ->
                 crewRepository.findById(member.getCrewId())
-                        .ifPresent(crew -> crew.addDistance(request.distanceKm())));
+                        .ifPresent(crew -> crew.addRunning(request.distanceKm())));
 
         return new RunningDto.CompleteResponse(false, false, buildReport(record),
                 new RunningDto.StatDelta(delta.stamina(), delta.endurance(), delta.speed()),

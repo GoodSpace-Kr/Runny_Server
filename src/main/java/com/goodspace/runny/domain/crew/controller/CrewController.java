@@ -40,7 +40,7 @@ public class CrewController {
     /** 크루 검색 */
     @Operation(summary = "크루 검색",
             description = "크루명 부분 일치, 전체 반환. memberCount와 myRequestStatus(NONE/PENDING)로 "
-                    + "가입 신청 버튼 vs 승인대기 표시 분기")
+                    + "가입 신청 버튼 vs 승인대기 표시 분기. totalDistance(누적 거리)도 함께 반환")
     @GetMapping("/search")
     public ApiResponse<CrewDto.SearchResponse> search(@RequestParam String name) {
         return ApiResponse.ok(crewService.search(SecurityUtil.currentUserId(), name));
@@ -55,8 +55,10 @@ public class CrewController {
 
     /** 크루 상세 */
     @Operation(summary = "크루 상세",
-            description = "이미지/크루명/한줄소개/총 누적 거리/멤버 수(현재·최대)/이번 주 top3(월요일 00:00 KST 기준)/"
-                    + "크루원 목록(UserSummary로 강아지 외형 포함). 미가입자 검색 팝업과 크루원 메인이 동일 데이터 사용")
+            description = "헤더 통계는 누적 기준(크루원 수/누적 러닝 횟수/누적 거리), 진행 바는 주간 목표 대비 이번 주 거리. "
+                    + "weeklyTop은 이번 주(월요일 00:00 KST 리셋) 카테고리별 1등 - speed(최단 평균 페이스 초/km), "
+                    + "distance(주간 누적 km), stamina(주간 누적 초). 기록 없으면 null. "
+                    + "크루원 목록은 UserSummary + 이번 주 거리/시간/평균 페이스(기록 없으면 null)")
     @GetMapping("/{crewId}")
     public ApiResponse<CrewDto.DetailResponse> getDetail(@PathVariable Long crewId) {
         return ApiResponse.ok(crewService.getDetail(crewId));
@@ -180,6 +182,16 @@ public class CrewController {
     public ApiResponse<Map<String, Integer>> expandCapacity(@PathVariable Long crewId) {
         int maxMembers = crewAdminService.expandCapacity(crewId, SecurityUtil.currentUserId());
         return ApiResponse.ok(Map.of("maxMembers", maxMembers));
+    }
+
+    /** 주간 목표 거리 설정 (크루장) */
+    @Operation(summary = "주간 목표 거리 설정 (크루장)",
+            description = "크루 메인 진행 바의 목표 거리(km). 무료, 1~1,000km 범위(벗어나면 CREW_015). 변경 후 목표값 반환")
+    @PatchMapping("/{crewId}/weekly-goal")
+    public ApiResponse<Map<String, Integer>> changeWeeklyGoal(@PathVariable Long crewId,
+                                                              @RequestParam int goalKm) {
+        int weeklyGoalKm = crewAdminService.changeWeeklyGoal(crewId, SecurityUtil.currentUserId(), goalKm);
+        return ApiResponse.ok(Map.of("weeklyGoalKm", weeklyGoalKm));
     }
 
     /** 크루장 위임 (크루장) */
