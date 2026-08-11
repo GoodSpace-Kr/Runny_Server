@@ -120,7 +120,18 @@ public final class RunningDto {
             Summary summary,
             List<HistoryItem> records
     ) {
-        public record Summary(double totalDistanceKm, int runCount, long totalDurationSec) {
+        /**
+         * 월 요약 - 히스토리 상단 카드는 총시간/평균 페이스/누적 칼로리를 표시한다.
+         * 누적 거리/횟수도 함께 내려주어 프론트가 필요한 지표를 선택해 쓸 수 있게 한다.
+         * avgPaceSec는 월 전체 총시간/총거리로 계산하며, 기록이 없으면 0.
+         */
+        public record Summary(
+                double totalDistanceKm,
+                int runCount,
+                long totalDurationSec,
+                long avgPaceSec,
+                int totalCalories
+        ) {
         }
     }
 
