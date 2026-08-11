@@ -7,16 +7,13 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 꾸미기 템플릿 리포지토리. 유저 단위 목록/개수 조회와 소유자 검증 조회를 제공한다.
+ * 꾸미기 템플릿 리포지토리. 유저의 슬롯 3칸 조회와 칸 단위 조회/삭제를 제공한다.
  */
 public interface DecorationTemplateRepository extends JpaRepository<DecorationTemplate, Long> {
 
-    /** 내 템플릿 목록 (최신순) */
-    List<DecorationTemplate> findByUserIdOrderByIdDesc(Long userId);
+    /** 내 템플릿 전체 (슬롯 번호 오름차순) - 빈 칸은 조회 결과에 없으므로 서비스에서 채운다 */
+    List<DecorationTemplate> findByUserIdOrderBySlotAsc(Long userId);
 
-    /** 유저당 저장 개수 (상한 검증용) */
-    int countByUserId(Long userId);
-
-    /** 소유자 검증을 포함한 단건 조회 */
-    Optional<DecorationTemplate> findByIdAndUserId(Long id, Long userId);
+    /** 특정 칸의 템플릿 (없으면 빈 칸) */
+    Optional<DecorationTemplate> findByUserIdAndSlot(Long userId, int slot);
 }
