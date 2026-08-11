@@ -37,6 +37,9 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
     /** 받은 요청 중 미확인 존재 여부 (빨간 점) */
     boolean existsByReceiverIdAndStatusAndCheckedFalse(Long receiverId, FriendshipStatus status);
 
+    /** 받은 요청 중 미확인 개수 (친구 요청 탭 배지 숫자용 - 조회만 하고 읽음 처리하지 않는다) */
+    int countByReceiverIdAndStatusAndCheckedFalse(Long receiverId, FriendshipStatus status);
+
     /** 받은 요청 일괄 확인 처리 (목록 조회 시점) */
     @Modifying
     @Query("UPDATE Friendship f SET f.checked = true " +

@@ -27,19 +27,32 @@ public final class FriendDto {
     ) {
     }
 
-    /** 친구 상세 - 친구 강아지 프로필 팝업용 (UserSummary + 강아지 스탯) */
+    /** 친구 목록 응답 - 친구 요청 탭 배지(숫자)용 미확인 받은 요청 수를 함께 반환한다(읽음 처리 없음) */
+    public record FriendListResponse(
+            List<FriendItem> friends,
+            int uncheckedRequestCount
+    ) {
+    }
+
+    /**
+     * 유저 프로필 상세 - 친구/비친구 공용(검색 결과에서도 진입 가능).
+     * relationStatus로 프론트가 버튼을 분기한다(FRIEND: 놀이터 초대/친구 삭제, NONE: 친구 추가, REQUESTED: 신청 취소).
+     */
     public record FriendDetail(
             UserSummary user,
             int stamina,
             int endurance,
-            int speed
+            int speed,
+            RelationStatus relationStatus,
+            Long requestId
     ) {
     }
 
-    /** 검색 결과 항목 - 나와의 관계 상태 포함 (프론트 버튼 분기) */
+    /** 검색 결과 항목 - 관계 상태 + requestId(REQUESTED: 취소용, RECEIVED: 수락용. 그 외 null) */
     public record SearchItem(
             UserSummary user,
-            RelationStatus relationStatus
+            RelationStatus relationStatus,
+            Long requestId
     ) {
     }
 
@@ -63,7 +76,7 @@ public final class FriendDto {
     ) {
     }
 
-    /** 놀이터 초대 저장 요청 - 친구 ID 배열 전체 교체 (최대 4명) */
+    /** 놀이터 초대 저장 요청 - 친구 ID 배열 전체 교체 (최대 3명) */
     public record InviteSaveRequest(
             @NotNull List<Long> friendUserIds
     ) {

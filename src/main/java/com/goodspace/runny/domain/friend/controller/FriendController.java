@@ -33,14 +33,17 @@ public class FriendController {
     /** 친구 목록 */
     @Operation(summary = "친구 목록",
             description = "UserSummary(닉네임/강아지 이름/견종/레벨/외형) 기반. "
-                    + "놀이터 초대된 친구가 최상단 + isPlayingTogether 플래그")
+                    + "놀이터 초대된 친구가 최상단 + isPlayingTogether 플래그. "
+                    + "uncheckedRequestCount는 친구 요청 탭 배지 숫자용이며 이 API에서는 읽음 처리되지 않는다")
     @GetMapping
-    public ApiResponse<List<FriendDto.FriendItem>> getFriends() {
+    public ApiResponse<FriendDto.FriendListResponse> getFriends() {
         return ApiResponse.ok(friendService.getFriends(SecurityUtil.currentUserId()));
     }
 
-    /** 친구 상세 */
-    @Operation(summary = "친구 상세", description = "친구 강아지 프로필 팝업용 - UserSummary + 강아지 스탯. 친구가 아니면 FRIEND_004")
+    /** 유저 프로필 상세 */
+    @Operation(summary = "유저 프로필 상세",
+            description = "강아지 프로필 화면/팝업용 - UserSummary + 강아지 스탯 + relationStatus/requestId. "
+                    + "친구가 아니어도 조회 가능하다(검색 결과에서 진입)")
     @GetMapping("/{friendUserId}/detail")
     public ApiResponse<FriendDto.FriendDetail> getFriendDetail(@PathVariable Long friendUserId) {
         return ApiResponse.ok(friendService.getFriendDetail(SecurityUtil.currentUserId(), friendUserId));
@@ -49,7 +52,8 @@ public class FriendController {
     /** 친구 검색 */
     @Operation(summary = "친구 검색",
             description = "닉네임 부분 일치, 전체 반환. 각 결과에 관계 상태 포함 - "
-                    + "NONE(+ 버튼)/REQUESTED(내가 요청함)/RECEIVED(상대가 요청함)/FRIEND(이미 친구)")
+                    + "NONE(+ 버튼)/REQUESTED(내가 요청함)/RECEIVED(상대가 요청함)/FRIEND(이미 친구). "
+                    + "REQUESTED/RECEIVED는 requestId가 함께 내려가 취소/수락을 바로 호출할 수 있다")
     @GetMapping("/search")
     public ApiResponse<FriendDto.SearchResponse> search(@RequestParam String nickname) {
         return ApiResponse.ok(friendService.search(SecurityUtil.currentUserId(), nickname));
