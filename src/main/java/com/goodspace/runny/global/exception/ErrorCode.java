@@ -130,11 +130,12 @@ public enum ErrorCode {
     RUNNING_003(HttpStatus.NOT_FOUND, "RUNNING_003", "존재하지 않는 러닝 기록입니다."),
 
     // 꾸미기 템플릿 (DECORATION)
-    DECORATION_001(HttpStatus.BAD_REQUEST, "DECORATION_001", "저장할 수 있는 템플릿 개수(10개)를 초과했습니다."),
+    DECORATION_001(HttpStatus.BAD_REQUEST, "DECORATION_001", "템플릿 칸 번호는 1~3만 사용할 수 있습니다."),
     DECORATION_002(HttpStatus.BAD_REQUEST, "DECORATION_002", "템플릿 레이아웃 크기는 20KB를 초과할 수 없습니다."),
     DECORATION_003(HttpStatus.BAD_REQUEST, "DECORATION_003", "템플릿 레이아웃 형식이 올바르지 않습니다."),
     DECORATION_004(HttpStatus.BAD_REQUEST, "DECORATION_004", "템플릿 이름은 20자를 초과할 수 없습니다."),
-    DECORATION_005(HttpStatus.NOT_FOUND, "DECORATION_005", "존재하지 않는 템플릿입니다.");
+    DECORATION_005(HttpStatus.NOT_FOUND, "DECORATION_005", "비어 있는 템플릿 칸입니다."),
+    DECORATION_006(HttpStatus.CONFLICT, "DECORATION_006", "이미 템플릿이 저장된 칸입니다. 삭제 후 저장해주세요.");
 
     private final HttpStatus status;
     private final String code;
