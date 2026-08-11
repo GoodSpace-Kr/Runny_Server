@@ -67,10 +67,12 @@ public class UserController {
     }
 
     /** 회원 탈퇴 (소프트 삭제 + 개인정보 즉시 익명화) */
-    @Operation(summary = "회원 탈퇴", description = "소프트 삭제 + 개인정보 즉시 익명화(deleted_{id}). 결제/원장/러닝 기록은 보존")
+    @Operation(summary = "회원 탈퇴",
+            description = "본인 확인 후 소프트 삭제 + 개인정보 즉시 익명화(deleted_{id}). 결제/원장/러닝 기록은 보존. "
+                    + "자체 가입(EMAIL) 유저는 password 필수(불일치 USER_009), 소셜 유저는 생략 가능. reason은 선택")
     @DeleteMapping("/me")
-    public ApiResponse<Void> withdraw() {
-        userService.withdraw(SecurityUtil.currentUserId());
+    public ApiResponse<Void> withdraw(@RequestBody(required = false) UserDto.WithdrawRequest request) {
+        userService.withdraw(SecurityUtil.currentUserId(), request);
         return ApiResponse.ok();
     }
 }

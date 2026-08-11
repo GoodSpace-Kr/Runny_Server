@@ -25,11 +25,22 @@ public final class UserDto {
     ) {
     }
 
-    /** 내 정보 수정 요청 - null 필드는 미변경 */
+    /** 내 정보 수정 요청 - null 필드는 미변경 (성별은 칼로리/업적 페이스 보정에 사용) */
     public record UpdateRequest(
             String nickname,
             @Positive Integer height,
-            @Positive Integer weight
+            @Positive Integer weight,
+            Gender gender
+    ) {
+    }
+
+    /**
+     * 회원 탈퇴 요청 - 본인 확인용 비밀번호와 탈퇴 사유(선택).
+     * 자체 가입(EMAIL) 유저는 password 필수, 소셜 유저는 비밀번호가 없으므로 생략 가능하다.
+     */
+    public record WithdrawRequest(
+            String password,
+            String reason
     ) {
     }
 

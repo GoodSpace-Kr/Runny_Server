@@ -116,7 +116,7 @@ public class User {
     }
 
     /** 내 정보 수정 - 전달된 값만 반영 (null은 미변경) */
-    public void updateInfo(String nickname, Integer height, Integer weight) {
+    public void updateInfo(String nickname, Integer height, Integer weight, Gender gender) {
         if (nickname != null) {
             this.nickname = nickname;
         }
@@ -125,6 +125,9 @@ public class User {
         }
         if (weight != null) {
             this.weight = weight;
+        }
+        if (gender != null) {
+            this.gender = gender;
         }
     }
 
