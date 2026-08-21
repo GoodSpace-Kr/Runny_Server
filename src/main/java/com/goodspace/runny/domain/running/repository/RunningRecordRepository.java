@@ -45,14 +45,16 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
 
     /**
      * 크루 주간 러닝 집계 (CrewRunningStatsProvider 실제 구현용).
-     * 유저별로 거리 합 / 시간 합 / 최단 평균 페이스를 한 번에 반환해
-     * 주간 목표 진행 바, 카테고리별 TOP(스피드/거리/체력), 크루원 목록 지표를 모두 조립한다.
+     * 유저별 거리 합과 시간 합을 한 번에 반환해 주간 거리 랭킹, 이번 주 거리 합계,
+     * 크루원 목록 지표를 모두 같은 스냅샷에서 조립한다.
+     * 구간은 이번 주 월요일 00:00 이상 ~ 다음 주 월요일 00:00 미만(KST)이다.
      */
-    @Query("SELECT r.userId, SUM(r.distanceKm), SUM(r.durationSec), MIN(r.avgPaceSec) FROM RunningRecord r " +
+    @Query("SELECT r.userId, SUM(r.distanceKm), SUM(r.durationSec) FROM RunningRecord r " +
             "WHERE r.userId IN (SELECT m.userId FROM com.goodspace.runny.domain.crew.entity.CrewMember m " +
             "                   WHERE m.crewId = :crewId) " +
-            "AND r.endedAt >= :weekStart " +
+            "AND r.endedAt >= :weekStart AND r.endedAt < :weekEnd " +
             "GROUP BY r.userId")
     List<Object[]> aggregateWeeklyByCrew(@Param("crewId") Long crewId,
-                                         @Param("weekStart") LocalDateTime weekStart);
+                                         @Param("weekStart") LocalDateTime weekStart,
+                                         @Param("weekEnd") LocalDateTime weekEnd);
 }

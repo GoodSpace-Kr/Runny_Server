@@ -40,22 +40,11 @@ public final class CrewDto {
     ) {
     }
 
-    /** 카테고리별 1등 항목 - value 단위는 카테고리별로 다르다(스피드: 초/km, 거리: km, 체력: 초) */
+    /** 이번 주 거리 랭킹 항목 - rank는 1~3, distanceKm는 이번 주 누적 거리 */
     public record TopMember(
+            int rank,
             UserSummary user,
-            double value
-    ) {
-    }
-
-    /**
-     * 이번 주 카테고리별 TOP - 월요일 00:00 (KST) 리셋 기준.
-     * speed: 이번 주 최단 평균 페이스 1회(초/km, 프론트가 km/h 변환) / distance: 주간 누적 거리(km) /
-     * stamina: 주간 누적 시간(초). 해당 기록이 없으면 각 필드는 null.
-     */
-    public record WeeklyTop(
-            TopMember speed,
-            TopMember distance,
-            TopMember stamina
+            double distanceKm
     ) {
     }
 
@@ -71,7 +60,8 @@ public final class CrewDto {
 
     /**
      * 크루 상세 - 미가입자 검색 팝업과 크루원 메인 화면이 동일 데이터 사용.
-     * 헤더 통계는 누적 기준(크루원 수/누적 러닝 횟수/누적 거리), 진행 바만 이번 주 거리 기준이다.
+     * 헤더는 누적(크루원 수/누적 러닝 횟수/누적 거리)과 이번 주 거리(weeklyDistanceKm)를 함께 제공하고,
+     * weeklyTopRanking은 이번 주(월 00:00 ~ 일 24:00 KST) 거리 합계 상위 3명이다.
      */
     public record DetailResponse(
             Long crewId,
@@ -85,7 +75,7 @@ public final class CrewDto {
             int weeklyGoalKm,
             double weeklyDistanceKm,
             int weeklyGoalPercent,
-            WeeklyTop weeklyTop,
+            List<TopMember> weeklyTopRanking,
             List<MemberItem> members
     ) {
     }

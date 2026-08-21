@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * 크루 서비스. 크루명 중복확인, 생성, 검색, 상세, 내 크루 조회, 가입 신청/취소, 탈퇴를 담당한다.
@@ -38,6 +39,8 @@ public class CrewService {
 
     // S3 크루 로고 프리픽스 (문서 8.4)
     static final String IMAGE_PREFIX = "crew/";
+    // 크루 메인 이번 주 거리 랭킹 노출 인원
+    private static final int WEEKLY_RANKING_SIZE = 3;
 
     private final CrewRepository crewRepository;
     private final CrewMemberRepository crewMemberRepository;
@@ -107,8 +110,8 @@ public class CrewService {
     }
 
     /**
-     * 크루 상세 - 헤더 통계(크루원 수/누적 러닝 횟수/누적 거리)는 누적 기준,
-     * 진행 바(주간 목표 대비)와 카테고리별 TOP, 크루원 지표는 이번 주(월요일 00:00 KST) 기준이다.
+     * 크루 상세 - 헤더 통계는 누적(크루원 수/누적 러닝 횟수/누적 거리)이고,
+     * 이번 주 거리 합계와 거리 랭킹 TOP3, 크루원 지표는 이번 주(월 00:00 ~ 일 24:00 KST) 기준이다.
      */
     @Transactional(readOnly = true)
     public CrewDto.DetailResponse getDetail(Long crewId) {
@@ -136,7 +139,7 @@ public class CrewService {
                 })
                 .toList();
 
-        // 주간 목표 진행 바 - 크루원 전체의 이번 주 거리 합산
+        // 이번 주 크루 전체 거리 합산 (헤더 표시 + 주간 목표 진행 바)
         double weeklyDistanceKm = weeklyStats.values().stream()
                 .mapToDouble(CrewRunningStatsProvider.WeeklyStats::distanceKm)
                 .sum();
@@ -148,32 +151,29 @@ public class CrewService {
                 crew.getIntro(), members.size(), crew.getMaxMembers(),
                 crew.getTotalRunCount(), round1(crew.getTotalDistance()),
                 crew.getWeeklyGoalKm(), round1(weeklyDistanceKm), weeklyGoalPercent,
-                buildWeeklyTop(weeklyStats.values(), summaries), memberItems);
+                buildWeeklyRanking(weeklyStats.values(), summaries), memberItems);
     }
 
     /**
-     * 이번 주 카테고리별 TOP 조립 - 스피드(최단 평균 페이스 1회) / 거리(주간 누적) / 체력(주간 누적 시간).
-     * 이번 주 기록이 없으면 각 항목은 null로 내려간다(프론트 빈 값 표시).
+     * 이번 주 거리 랭킹 TOP3 조립 - 주간 누적 거리 내림차순, 동률이면 유저 ID 오름차순으로 순위를 확정한다.
+     * 이번 주 기록이 없는(거리 0) 크루원은 제외하며, 아무도 달리지 않았으면 빈 목록을 반환한다.
      */
-    private CrewDto.WeeklyTop buildWeeklyTop(Collection<CrewRunningStatsProvider.WeeklyStats> stats,
-                                             Map<Long, UserSummary> summaries) {
-        List<CrewRunningStatsProvider.WeeklyStats> candidates = stats.stream()
+    private List<CrewDto.TopMember> buildWeeklyRanking(Collection<CrewRunningStatsProvider.WeeklyStats> stats,
+                                                       Map<Long, UserSummary> summaries) {
+        List<CrewRunningStatsProvider.WeeklyStats> ranked = stats.stream()
                 .filter(entry -> summaries.containsKey(entry.userId()))
+                .filter(entry -> entry.distanceKm() > 0)
+                .sorted(Comparator
+                        .comparingDouble(CrewRunningStatsProvider.WeeklyStats::distanceKm).reversed()
+                        .thenComparingLong(CrewRunningStatsProvider.WeeklyStats::userId))
+                .limit(WEEKLY_RANKING_SIZE)
                 .toList();
-        CrewDto.TopMember speed = candidates.stream()
-                .filter(entry -> entry.bestPaceSec() > 0)
-                .min(Comparator.comparingLong(CrewRunningStatsProvider.WeeklyStats::bestPaceSec))
-                .map(entry -> new CrewDto.TopMember(summaries.get(entry.userId()), entry.bestPaceSec()))
-                .orElse(null);
-        CrewDto.TopMember distance = candidates.stream()
-                .max(Comparator.comparingDouble(CrewRunningStatsProvider.WeeklyStats::distanceKm))
-                .map(entry -> new CrewDto.TopMember(summaries.get(entry.userId()), round1(entry.distanceKm())))
-                .orElse(null);
-        CrewDto.TopMember stamina = candidates.stream()
-                .max(Comparator.comparingLong(CrewRunningStatsProvider.WeeklyStats::durationSec))
-                .map(entry -> new CrewDto.TopMember(summaries.get(entry.userId()), entry.durationSec()))
-                .orElse(null);
-        return new CrewDto.WeeklyTop(speed, distance, stamina);
+        return IntStream.range(0, ranked.size())
+                .mapToObj(index -> new CrewDto.TopMember(
+                        index + 1,
+                        summaries.get(ranked.get(index).userId()),
+                        round1(ranked.get(index).distanceKm())))
+                .toList();
     }
 
     /** 거리 표시용 소수 첫째 자리 반올림 */

@@ -55,9 +55,9 @@ public class CrewController {
 
     /** 크루 상세 */
     @Operation(summary = "크루 상세",
-            description = "헤더 통계는 누적 기준(크루원 수/누적 러닝 횟수/누적 거리), 진행 바는 주간 목표 대비 이번 주 거리. "
-                    + "weeklyTop은 이번 주(월요일 00:00 KST 리셋) 카테고리별 1등 - speed(최단 평균 페이스 초/km), "
-                    + "distance(주간 누적 km), stamina(주간 누적 초). 기록 없으면 null. "
+            description = "헤더 통계는 누적 기준(크루원 수/누적 러닝 횟수/누적 거리)이며 이번 주 거리(weeklyDistanceKm)도 함께 제공. "
+                    + "weeklyTopRanking은 이번 주(월 00:00 ~ 일 24:00 KST) 거리 합계 상위 3명으로 rank 1~3과 distanceKm 포함, "
+                    + "동률은 유저 ID 순, 이번 주 기록이 없으면 빈 배열. 일요일이 끝나면 자동 초기화된다. "
                     + "크루원 목록은 UserSummary + 이번 주 거리/시간/평균 페이스(기록 없으면 null)")
     @GetMapping("/{crewId}")
     public ApiResponse<CrewDto.DetailResponse> getDetail(@PathVariable Long crewId) {
